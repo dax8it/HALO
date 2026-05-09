@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Protocol, runtime_checkable
 
-from agents import Agent
+from agents import Agent, RunConfig
 from agents.result import RunResultStreaming
 
 
@@ -14,7 +14,7 @@ class RunnerProtocol(Protocol):
     openai-agents SDK satisfies this protocol structurally (its
     ``run_streamed`` is a staticmethod with a compatible signature). Tests
     can substitute a fake runner that returns a scripted stream of events;
-    see ``engine/tests/probes/probe_kit.py`` for the canonical fake.
+    see ``tests/probes/probe_kit.py`` for the canonical fake.
 
     Only the kwargs the engine actually forwards are declared here. Adding
     a new kwarg to the engine means adding it here too — that asymmetry is
@@ -29,4 +29,5 @@ class RunnerProtocol(Protocol):
         input: Any,
         context: Any = None,
         max_turns: int = 10,
+        run_config: RunConfig | None = None,
     ) -> RunResultStreaming: ...

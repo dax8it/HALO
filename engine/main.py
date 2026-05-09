@@ -6,6 +6,8 @@ from collections.abc import AsyncGenerator, Iterator
 from pathlib import Path
 from typing import TypeVar
 
+from agents import RunConfig
+
 from engine.agents.agent_context import AgentContext
 from engine.agents.agent_execution import AgentExecution
 from engine.agents.compactor import build_compactor_factory
@@ -13,6 +15,7 @@ from engine.agents.engine_output_bus import EngineOutputBus
 from engine.agents.engine_run_state import EngineRunState
 from engine.agents.openai_agent_runner import OpenAiAgentRunner, configure_default_sdk_client
 from engine.agents.runner_protocol import RunnerProtocol
+from engine.agents.turn_counter import TurnCounterInputFilter
 from engine.engine_config import EngineConfig
 from engine.models.engine_output import AgentOutputItem, EngineStreamEvent
 from engine.models.messages import AgentMessage
@@ -93,11 +96,24 @@ async def stream_engine_async(
         )
 
         async def _run_streamed(*, agent, input, context):
+            # Fresh filter per SDK Runner.run_streamed invocation so
+            # OpenAiAgentRunner retries reset the counter alongside the
+            # SDK's own max_turns counter. Without this, a transient LLM
+            # failure on the first turn would leave _current=1 and the
+            # next attempt would render "[HALO: turn 2 of M]" while the
+            # SDK is internally on turn 1.
+            run_config = RunConfig(
+                call_model_input_filter=TurnCounterInputFilter(
+                    max_turns=engine_config.root_agent.maximum_turns,
+                    is_root=True,
+                )
+            )
             return run_state.runner.run_streamed(
                 starting_agent=agent,
                 input=input,
                 context=context,
                 max_turns=engine_config.root_agent.maximum_turns,
+                run_config=run_config,
             )
 
         async def _drive() -> None:

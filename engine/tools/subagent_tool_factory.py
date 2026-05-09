@@ -5,7 +5,7 @@ import logging
 import uuid
 from typing import Any
 
-from agents import Agent, FunctionTool, RunContextWrapper, Tool
+from agents import Agent, FunctionTool, RunConfig, RunContextWrapper, Tool
 from agents.agent_tool_input import AgentAsToolInput
 from agents.tool_context import ToolContext as SdkToolContext
 
@@ -16,6 +16,7 @@ from engine.agents.compactor import build_compactor_factory
 from engine.agents.engine_run_state import EngineRunState
 from engine.agents.openai_agent_runner import OpenAiAgentRunner
 from engine.agents.prompt_templates import render_subagent_system_prompt
+from engine.agents.turn_counter import TurnCounterInputFilter
 from engine.errors import EngineAgentExhaustedError, EngineMaxDepthExceededError
 from engine.tools.agent_context_tools import GetContextItemTool
 from engine.tools.run_code_tool import RunCodeTool
@@ -245,11 +246,22 @@ def _build_subagent_as_tool(
             )
 
             async def _run_streamed(*, agent, input, context):
+                # Fresh filter per SDK Runner.run_streamed invocation so
+                # OpenAiAgentRunner retries reset the counter alongside
+                # the SDK's own max_turns counter. See engine/main.py for
+                # the same pattern on the root agent.
+                run_config = RunConfig(
+                    call_model_input_filter=TurnCounterInputFilter(
+                        max_turns=engine_config.subagent.maximum_turns,
+                        is_root=False,
+                    )
+                )
                 return run_state.runner.run_streamed(
                     starting_agent=agent,
                     input=input,
                     context=context,
                     max_turns=engine_config.subagent.maximum_turns,
+                    run_config=run_config,
                 )
 
             runner = OpenAiAgentRunner(

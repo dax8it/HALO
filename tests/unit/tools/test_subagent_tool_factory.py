@@ -291,7 +291,7 @@ async def test_guarded_invoke_passes_parsed_input_not_raw_json() -> None:
 
     class _CapturingRunner:
         @staticmethod
-        def run_streamed(*, starting_agent, input, context, max_turns):
+        def run_streamed(*, starting_agent, input, context, max_turns, **kwargs):
             captured_inputs.append(list(input))
             return _EmptyStream()
 
