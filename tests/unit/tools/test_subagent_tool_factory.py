@@ -4,6 +4,7 @@ import asyncio
 from unittest.mock import MagicMock
 
 import pytest
+from agents import Agent, RunConfig
 from agents.tool_context import ToolContext as SdkToolContext
 
 from engine.agents.agent_config import AgentConfig
@@ -291,7 +292,14 @@ async def test_guarded_invoke_passes_parsed_input_not_raw_json() -> None:
 
     class _CapturingRunner:
         @staticmethod
-        def run_streamed(*, starting_agent, input, context, max_turns, **kwargs):
+        def run_streamed(
+            *,
+            starting_agent: Agent,
+            input: list[dict[str, object]],
+            context: EngineRunState,
+            max_turns: int,
+            run_config: RunConfig,
+        ) -> _EmptyStream:
             captured_inputs.append(list(input))
             return _EmptyStream()
 
