@@ -209,10 +209,26 @@ class _StubCatalystBackend:
 def _install_stub_catalyst(monkeypatch) -> list[_StubCatalystBackend]:
     """Replace the ``catalyst_setup`` reference bound in
     ``engine.telemetry.setup`` with a stub. Returns the list the stub
-    appends backends to (one entry per setup() call)."""
+    appends backends to (one entry per setup() call).
+
+    The stub mirrors the real ``inference_catalyst_tracing.setup``
+    keyword-only signature (rather than swallowing ``**kwargs``) so
+    that if ``_setup_catalyst`` ever starts passing a kwarg the real
+    function doesn't accept, the test fails loudly here instead of
+    silently masking the bug. Any new kwarg actually supported by the
+    real function should be added here as well.
+    """
     backends: list[_StubCatalystBackend] = []
 
-    def _stub_setup(*args, **kwargs):
+    def _stub_setup(
+        *,
+        endpoint: str | None = None,
+        token: str | None = None,
+        service_name: str | None = None,
+        service_version: str | None = None,
+        debug: bool | None = None,
+        batching: str | None = None,
+    ) -> _StubCatalystBackend:
         be = _StubCatalystBackend()
         backends.append(be)
         return be
