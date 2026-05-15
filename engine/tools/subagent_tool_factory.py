@@ -269,7 +269,14 @@ def _build_subagent_as_tool(
                 compactor_factory=build_compactor_factory(engine_config),
             )
 
-            with halo_agent_span(name=engine_config.subagent.name, system="openai"):
+            # ``agent_id="halo"`` matches the root span (see
+            # ``engine/main.py``) so Catalyst groups root + every
+            # subagent invocation under one Agents-tab identity. The
+            # span ``agent.name`` is fixed at ``"halo-sub"`` for
+            # display; ``engine_config.subagent.name`` ("sub") still
+            # drives the HALO run page UI via
+            # ``child_execution.agent_name``.
+            with halo_agent_span(name="halo-sub", agent_id="halo", system="openai"):
                 try:
                     await runner.run(
                         sdk_agent=child_agent,

@@ -58,7 +58,11 @@ async def stream_engine_async(
     run_id = resolve_run_id()
     telemetry_handle = setup_telemetry(enable=telemetry, run_id=run_id)
     try:
-        with halo_agent_span(name="halo", system="openai"):
+        # Root + subagent share ``agent_id="halo"`` so Catalyst's Agents
+        # view collapses every HALO run into one identity row; the
+        # span-level ``agent.name`` ("halo-root" vs "halo-sub") still
+        # distinguishes the two for span-tree rendering.
+        with halo_agent_span(name="halo-root", agent_id="halo", system="openai"):
             configure_default_sdk_client(engine_config.model_provider)
             sandbox = Sandbox.get()
 

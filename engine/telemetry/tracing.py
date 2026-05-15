@@ -32,16 +32,26 @@ _TRACER_NAME = "halo-engine"
 
 
 @contextmanager
-def halo_agent_span(*, name: str, system: str = "openai") -> Iterator[AgentSpanHandle]:
+def halo_agent_span(
+    *,
+    name: str,
+    system: str = "openai",
+    agent_id: str | None = None,
+) -> Iterator[AgentSpanHandle]:
     """Open an OpenInference AGENT span around a chunk of HALO agent work.
 
     ``name`` becomes the span's ``agent.name`` and the prefix of its
-    span name (``f"{name}.run"``). ``system`` becomes ``gen_ai.system``.
+    span name (``f"{name}.run"``). ``agent_id`` becomes the span's
+    ``agent.id`` — Catalyst groups the Agents view on that field with
+    ``agent.name`` as a fallback, so passing a stable ``agent_id`` (e.g.
+    ``"halo"`` for both root + subagent) collapses every HALO run under
+    a single Agents-tab row regardless of which name the span carries.
+    ``system`` becomes ``gen_ai.system``.
 
     Yields the ``AgentSpanHandle`` from catalyst-tracing. When telemetry
     is off or the local backend is active, the handle wraps a
     no-op ``NonRecordingSpan`` and all attribute setters silently no-op.
     """
     tracer = trace.get_tracer(_TRACER_NAME)
-    with agent_span(tracer, name=name, system=system) as span:
+    with agent_span(tracer, name=name, system=system, agent_id=agent_id) as span:
         yield span
