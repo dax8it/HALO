@@ -22,6 +22,7 @@ so callers don't need to special-case the off path.
 
 from __future__ import annotations
 
+import os
 from collections.abc import Iterator
 from contextlib import contextmanager
 
@@ -29,29 +30,40 @@ from inference_catalyst_tracing import AgentSpanHandle, agent_span
 from opentelemetry import trace
 
 _TRACER_NAME = "halo-engine"
+_SESSION_ID_ENV = "CATALYST_TRACING_CONVERSATION_ID"
+
+
+def _session_id_from_env() -> str | None:
+    value = os.environ.get(_SESSION_ID_ENV, "").strip()
+    if not value:
+        return None
+    return value
 
 
 @contextmanager
 def halo_agent_span(
     *,
-    name: str,
+    span_name: str,
     system: str = "openai",
     agent_id: str | None = None,
 ) -> Iterator[AgentSpanHandle]:
     """Open an OpenInference AGENT span around a chunk of HALO agent work.
 
-    ``name`` becomes the span's ``agent.name`` and the prefix of its
-    span name (``f"{name}.run"``). ``agent_id`` becomes the span's
-    ``agent.id`` — Catalyst groups the Agents view on that field with
-    ``agent.name`` as a fallback, so passing a stable ``agent_id`` (e.g.
-    ``"halo"`` for both root + subagent) collapses every HALO run under
-    a single Agents-tab row regardless of which name the span carries.
-    ``system`` becomes ``gen_ai.system``.
+    ``span_name`` is the OTel operation name. ``agent_id`` is the
+    stable agent identity Catalyst groups by, so passing ``"halo"``
+    for both root and subagent spans collapses every HALO run under a
+    single Agents-tab row. ``system`` becomes ``gen_ai.system``.
 
     Yields the ``AgentSpanHandle`` from catalyst-tracing. When telemetry
     is off or the local backend is active, the handle wraps a
     no-op ``NonRecordingSpan`` and all attribute setters silently no-op.
     """
     tracer = trace.get_tracer(_TRACER_NAME)
-    with agent_span(tracer, name=name, system=system, agent_id=agent_id) as span:
+    with agent_span(
+        tracer,
+        span_name=span_name,
+        system=system,
+        agent_id=agent_id,
+        session_id=_session_id_from_env(),
+    ) as span:
         yield span

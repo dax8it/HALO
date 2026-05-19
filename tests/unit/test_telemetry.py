@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import os
+from contextlib import contextmanager
 
 import pytest
 
@@ -40,6 +41,36 @@ def test_setup_returns_none_when_disabled(monkeypatch) -> None:
 
     assert handle is None
     assert cleared == [[]]
+
+
+def test_halo_agent_span_passes_conversation_id_as_session_id(monkeypatch) -> None:
+    from engine.telemetry import tracing
+
+    captured: dict[str, object] = {}
+
+    class _FakeSpan:
+        pass
+
+    @contextmanager
+    def _fake_agent_span(tracer: object, **kwargs: object):
+        captured["tracer"] = tracer
+        captured.update(kwargs)
+        yield _FakeSpan()
+
+    monkeypatch.setenv("CATALYST_TRACING_CONVERSATION_ID", "  conv-123  ")
+    monkeypatch.setattr(tracing.trace, "get_tracer", lambda name: f"tracer:{name}")
+    monkeypatch.setattr(tracing, "agent_span", _fake_agent_span)
+
+    with tracing.halo_agent_span(span_name="halo-root.run", agent_id="halo"):
+        pass
+
+    assert captured == {
+        "tracer": "tracer:halo-engine",
+        "span_name": "halo-root.run",
+        "system": "openai",
+        "agent_id": "halo",
+        "session_id": "conv-123",
+    }
 
 
 def test_setup_attaches_local_processor(monkeypatch, tmp_path) -> None:
