@@ -30,6 +30,8 @@ export OPENAI_API_KEY=sk-...
 halo TRACE_PATH --prompt "your question"
 ```
 
+Run `halo --help` to see every option supported by your installed version.
+
 ### Required
 
 | Arg              | Description                                                     |
@@ -39,13 +41,27 @@ halo TRACE_PATH --prompt "your question"
 
 ### Options
 
-| Flag                 | Default            | Description                                                                                                                                                                                                                      |
-| -------------------- | ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--model`, `-m`      | `gpt-5.4-mini`     | Model name for root, sub, synthesis, and compaction                                                                                                                                                                              |
-| `--max-depth`        | `1`                | Max subagent recursion depth                                                                                                                                                                                                     |
-| `--max-turns`        | `8`                | Max turns per agent                                                                                                                                                                                                              |
-| `--max-parallel`     | `2`                | Max concurrent subagents                                                                                                                                                                                                         |
-| `--reasoning-effort` | _(model default)_  | Reasoning effort for root, subagent, and synthesis calls. One of `none`, `minimal`, `low`, `medium`, `high`, `xhigh`. Compaction never uses reasoning. Omit to use the model family's documented max for known reasoning models. |
+| Flag                                          | Default               | Description                                                                                             |
+| --------------------------------------------- | --------------------- | ------------------------------------------------------------------------------------------------------- |
+| `--model`, `-m`                               | `gpt-5.4-mini`        | Model name for root, subagent, synthesis, and compaction calls                                          |
+| `--max-depth`                                 | `2`                   | Max subagent recursion depth                                                                            |
+| `--max-turns`                                 | `20`                  | Max turns per agent                                                                                     |
+| `--max-parallel`                              | `10`                  | Max concurrent subagents                                                                                |
+| `--base-url`                                  | SDK default           | OpenAI-compatible API base URL. Omit to use `OPENAI_BASE_URL` or the OpenAI SDK default                 |
+| `--api-key`                                   | `OPENAI_API_KEY`      | Provider API key                                                                                        |
+| `--header`, `-H`                              | _(unset)_             | Provider header as `NAME: VALUE`. Repeat for multiple headers, matching curl's `-H` convention          |
+| `--temperature`                               | provider default      | Sampling temperature forwarded to the model                                                             |
+| `--max-output-tokens`                         | provider default      | Maximum output tokens forwarded to the model                                                            |
+| `--parallel-tool-calls / --no-parallel-tool-calls` | enabled               | Allow models to issue parallel tool calls                                                               |
+| `--refusal-retries`                           | `0`                   | Retry an agent model request this many times when the model refuses                                     |
+| `--reasoning-effort`                          | model/provider default | Reasoning effort for root, subagent, and synthesis calls. Compaction never uses reasoning               |
+| `--telemetry`                                 | off                   | Emit OpenInference traces of HALO's own LLM, tool, and agent activity                                  |
+
+The CLI mirrors the model/provider settings exposed by the Python SDK's
+[`ModelConfig`](../engine/model_config.py) and
+[`ModelProviderConfig`](../engine/model_provider_config.py). Use
+`--base-url`, `--api-key`, and repeated `--header "NAME: VALUE"`
+flags for OpenAI-compatible providers that need custom routing.
 
 ## Example
 
@@ -54,6 +70,8 @@ halo tests/fixtures/realistic_traces.jsonl \
   -p "What are the most common failure modes?" \
   --max-depth 2 \
   --max-turns 12 \
+  --base-url https://openrouter.ai/api/v1 \
+  -H "HTTP-Referer: https://example.com" \
   --reasoning-effort high
 ```
 

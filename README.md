@@ -92,6 +92,10 @@ export OPENAI_API_KEY=...
 halo path_to_your_traces.jsonl -p "Diagnose errors you find and suggest fixes"
 ```
 
+Run `halo --help` to see all CLI options. The CLI mirrors the model/provider settings exposed by the Python SDK's
+[`ModelConfig`](engine/model_config.py) and
+[`ModelProviderConfig`](engine/model_provider_config.py).
+
 We have provided a [simple demo](/demo/openai-agents-sdk-demo/) and an [AppWorld](#appworld) demo.
 
 ### Python API
