@@ -1,127 +1,19 @@
 # HALO CLI
 
-Thin Typer wrapper around the HALO engine that streams the engine over a JSONL trace file.
+This package contains the `halo` console entry point registered in `pyproject.toml`.
+It is a thin Typer wrapper around the engine API:
 
-## Install
+- Parses CLI arguments and environment-backed provider settings.
+- Builds an `EngineConfig` from those arguments.
+- Calls `stream_engine_async` over a JSONL trace file.
+- Renders streaming text deltas and completed agent output items to stdout.
 
-```bash
-pip install halo-engine
-```
+User-facing installation, usage, options, and telemetry docs live in the root
+[`README.md`](../README.md).
 
-This installs the `halo` script onto your `PATH`. No extra configuration — the script is registered as a console entry point in the `halo-engine` wheel.
+## Code Layout
 
-Verify:
+`main.py` intentionally keeps the CLI small. The engine owns behavior; the CLI only
+maps shell arguments to existing config objects.
 
-```bash
-halo --help
-```
-
-### Setup
-
-The engine needs real LLM access:
-
-```bash
-export OPENAI_API_KEY=sk-...
-```
-
-## Usage
-
-```bash
-halo TRACE_PATH --prompt "your question"
-```
-
-Run `halo --help` to see every option supported by your installed version.
-
-### Required
-
-| Arg              | Description                                                     |
-| ---------------- | --------------------------------------------------------------- |
-| `TRACE_PATH`     | JSONL trace file (e.g. `tests/fixtures/realistic_traces.jsonl`) |
-| `--prompt`, `-p` | User prompt sent to the root agent                              |
-
-### Options
-
-| Flag                                          | Default               | Description                                                                                             |
-| --------------------------------------------- | --------------------- | ------------------------------------------------------------------------------------------------------- |
-| `--model`, `-m`                               | `gpt-5.4-mini`        | Model name for root, subagent, synthesis, and compaction calls                                          |
-| `--max-depth`                                 | `2`                   | Max subagent recursion depth                                                                            |
-| `--max-turns`                                 | `20`                  | Max turns per agent                                                                                     |
-| `--max-parallel`                              | `10`                  | Max concurrent subagents                                                                                |
-| `--base-url`                                  | SDK default           | OpenAI-compatible API base URL. Omit to use `OPENAI_BASE_URL` or the OpenAI SDK default                 |
-| `--api-key`                                   | `OPENAI_API_KEY`      | Provider API key                                                                                        |
-| `--header`, `-H`                              | _(unset)_             | Provider header as `NAME: VALUE`. Repeat for multiple headers, matching curl's `-H` convention          |
-| `--temperature`                               | provider default      | Sampling temperature forwarded to the model                                                             |
-| `--max-output-tokens`                         | provider default      | Maximum output tokens forwarded to the model                                                            |
-| `--parallel-tool-calls / --no-parallel-tool-calls` | enabled               | Allow models to issue parallel tool calls                                                               |
-| `--refusal-retries`                           | `0`                   | Retry an agent model request this many times when the model refuses                                     |
-| `--reasoning-effort`                          | model/provider default | Reasoning effort for root, subagent, and synthesis calls. Compaction never uses reasoning               |
-| `--telemetry`                                 | off                   | Emit OpenInference traces of HALO's own LLM, tool, and agent activity                                  |
-
-The CLI mirrors the model/provider settings exposed by the Python SDK's
-[`ModelConfig`](../engine/model_config.py) and
-[`ModelProviderConfig`](../engine/model_provider_config.py). Use
-`--base-url`, `--api-key`, and repeated `--header "NAME: VALUE"`
-flags for OpenAI-compatible providers that need custom routing.
-
-## Example
-
-```bash
-halo tests/fixtures/realistic_traces.jsonl \
-  -p "What are the most common failure modes?" \
-  --max-depth 2 \
-  --max-turns 12 \
-  --base-url https://openrouter.ai/api/v1 \
-  -H "HTTP-Referer: https://example.com" \
-  --reasoning-effort high
-```
-
-Output streams to stdout: text deltas inline, then a rule-separated panel for each agent output item.
-
-## Telemetry (optional)
-
-HALO can emit OpenInference-shaped traces of its **own** LLM, tool, and agent activity — useful when you're tuning HALO and want to inspect what it actually did. Off by default; nothing is emitted unless you pass `--telemetry`.
-
-### Enable on a run
-
-```bash
-halo TRACE_PATH --prompt "..." --telemetry
-```
-
-### Routing
-
-The destination is decided by env vars:
-
-- `CATALYST_OTLP_TOKEN` set → spans are uploaded to **inference.net Catalyst** over OTLP.
-- `CATALYST_OTLP_TOKEN` unset → spans are written to a **local JSONL file** at `./halo-telemetry-{run_id}.jsonl` in the current working directory.
-
-### Environment variables
-
-| Var | Default | Purpose |
-|---|---|---|
-| `CATALYST_OTLP_TOKEN` | *(unset)* | If set, uploads to Catalyst over OTLP. If unset, writes JSONL locally. |
-| `CATALYST_OTLP_ENDPOINT` | catalyst-tracing default | OTLP endpoint **base URL** (e.g. `https://telemetry.inference.net`). catalyst-tracing appends `/v1/traces` automatically — do **not** include the path, or you'll get a `.../v1/traces/v1/traces` 404 and silently no traces. |
-| `CATALYST_DEBUG` | *(unset)* | Set to `1` to surface OTLP export errors at WARNING level. Useful for troubleshooting "no errors, no traces" — the default `BatchSpanProcessor` swallows export failures. |
-| `CATALYST_TRACING_RUN_ID` | *(unset)* | When set, becomes the HALO run id (and the `halo.run.id` resource attribute) instead of a generated uuid. Lets a launching system (typically Catalyst) keep its own bookkeeping in sync with HALO's traces. |
-| `CATALYST_TRACING_*` | *(unset)* | Generic passthrough — see below. |
-| `HALO_TELEMETRY_PATH` | `./halo-telemetry-{run_id}.jsonl` | Local fallback file path. Only consulted when `CATALYST_OTLP_TOKEN` is unset. |
-
-### Local file format
-
-The local JSONL is the inference.net OTLP-shaped form that HALO itself ingests, so traces produced by running HALO can be loaded back into HALO for analysis.
-
-### Notes
-
-- Enabling `--telemetry` clears the openai-agents SDK's default trace processor (which would otherwise upload to OpenAI's dashboard). HALO's own LLM traffic stays out of OpenAI's dashboard while telemetry is on.
-- When telemetry is off (the default), no env vars are read and no files are written.
-
-## Developing locally
-
-If you want to hack on the CLI or the engine itself, install from a checkout of this repo with [`uv`](https://docs.astral.sh/uv/):
-
-```bash
-git clone https://github.com/context-labs/HALO
-cd HALO
-uv sync
-```
-
-`uv sync` creates `.venv/` and installs `halo-engine` in editable mode. Use `uv run halo ...` (or activate the venv) to invoke the CLI against your local checkout.
+Tests for argument parsing and config wiring live in `tests/unit/test_halo_cli.py`.

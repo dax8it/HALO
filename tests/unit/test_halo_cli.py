@@ -1,9 +1,14 @@
 from __future__ import annotations
 
+from pathlib import Path
+from typing import Any
+
 import pytest
 import typer
 from typer.testing import CliRunner
 
+import halo_cli.main as cli_main
+from engine.engine_config import EngineConfig
 from halo_cli.main import _make_config, _parse_headers, cli
 
 
@@ -60,6 +65,40 @@ def test_make_config_threads_cli_options_into_engine_config() -> None:
     assert cfg.compaction_model.maximum_output_tokens == 1024
     assert cfg.compaction_model.parallel_tool_calls is False
     assert cfg.compaction_model.reasoning_effort is None
+
+
+def test_cli_leaves_provider_fields_unset_for_openai_env_fallback(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    trace_path = tmp_path / "traces.jsonl"
+    trace_path.write_text("")
+    captured: dict[str, Any] = {}
+
+    async def capture_stream(
+        trace_path: Path,
+        prompt: str,
+        cfg: EngineConfig,
+        *,
+        telemetry: bool = False,
+    ) -> None:
+        captured["trace_path"] = trace_path
+        captured["prompt"] = prompt
+        captured["cfg"] = cfg
+        captured["telemetry"] = telemetry
+
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-env")
+    monkeypatch.setenv("OPENAI_BASE_URL", "https://env.example/v1")
+    monkeypatch.setattr(cli_main, "_stream", capture_stream)
+
+    result = CliRunner().invoke(cli, [str(trace_path), "--prompt", "hi"])
+
+    assert result.exit_code == 0
+    assert captured["trace_path"] == trace_path
+    assert captured["prompt"] == "hi"
+    assert captured["cfg"].model_provider.api_key is None
+    assert captured["cfg"].model_provider.base_url is None
+    assert captured["telemetry"] is False
 
 
 def test_parse_headers() -> None:

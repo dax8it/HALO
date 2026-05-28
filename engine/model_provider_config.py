@@ -12,9 +12,10 @@ class ModelProviderConfig(BaseModel):
 
     Each field is independent: when ``None`` the underlying ``AsyncOpenAI``
     client falls back to the matching env var (``OPENAI_BASE_URL`` /
-    ``OPENAI_API_KEY``). Setting one and not the other is supported — e.g.
-    point ``base_url`` at OpenRouter while letting ``OPENAI_API_KEY`` from
-    the environment supply the credential.
+    ``OPENAI_API_KEY``). When ``OPENAI_BASE_URL`` is unset, the endpoint is
+    OpenAI's API base URL, ``https://api.openai.com/v1``. Setting one and not
+    the other is supported — e.g. point ``base_url`` at OpenRouter while
+    letting ``OPENAI_API_KEY`` from the environment supply the credential.
     """
 
     model_config = ConfigDict(extra="forbid")

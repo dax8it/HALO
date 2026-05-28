@@ -143,7 +143,8 @@ def _run(
         None,
         "--base-url",
         help=(
-            "OpenAI-compatible API base URL. Omit to use OPENAI_BASE_URL or the OpenAI SDK default."
+            "OpenAI-compatible API base URL. Omit to use OPENAI_BASE_URL "
+            "or https://api.openai.com/v1."
         ),
     ),
     api_key: str | None = typer.Option(
