@@ -16,6 +16,7 @@ from engine.agents.agent_config import AgentConfig
 from engine.engine_config import EngineConfig
 from engine.main import stream_engine_async
 from engine.model_config import ModelConfig, ReasoningEffort
+from engine.model_provider_config import ModelProviderConfig
 from engine.models.engine_output import AgentOutputItem, AgentTextDelta
 from engine.models.messages import AgentMessage
 
@@ -38,20 +39,49 @@ def _parse_reasoning_effort(value: str | None) -> ReasoningEffort | None:
         raise typer.BadParameter(str(exc), param_hint="--reasoning-effort") from exc
 
 
+def _parse_headers(values: list[str] | None) -> dict[str, str] | None:
+    headers: dict[str, str] = {}
+    for raw in values or []:
+        name, separator, value = raw.partition(":")
+        if separator == "" or name.strip() == "":
+            raise typer.BadParameter(
+                "Expected NAME: VALUE.",
+                param_hint="--header",
+            )
+        headers[name.strip()] = value.strip()
+    return headers or None
+
+
 def _make_config(
+    *,
     model: str,
     max_depth: int,
     max_turns: int,
     max_parallel: int,
+    temperature: float | None,
+    max_output_tokens: int | None,
+    parallel_tool_calls: bool,
     reasoning_effort: ReasoningEffort | None,
     refusal_retries: int,
+    base_url: str | None,
+    api_key: str | None,
+    default_headers: dict[str, str] | None,
 ) -> EngineConfig:
+    def make_model_config(reasoning_effort: ReasoningEffort | None) -> ModelConfig:
+        return ModelConfig(
+            name=model,
+            temperature=temperature,
+            maximum_output_tokens=max_output_tokens,
+            parallel_tool_calls=parallel_tool_calls,
+            reasoning_effort=reasoning_effort,
+        )
+
     # One ModelConfig per role so each is independently tunable. Compaction
     # intentionally skips reasoning_effort — it's a deterministic summarizer.
-    root_model = ModelConfig(name=model, reasoning_effort=reasoning_effort)
-    subagent_model = ModelConfig(name=model, reasoning_effort=reasoning_effort)
-    synthesis_model = ModelConfig(name=model, reasoning_effort=reasoning_effort)
-    compaction_model = ModelConfig(name=model)
+    root_model = make_model_config(reasoning_effort)
+    subagent_model = make_model_config(reasoning_effort)
+    synthesis_model = make_model_config(reasoning_effort)
+    compaction_model = make_model_config(None)
 
     root_agent = AgentConfig(
         name="root",
@@ -71,6 +101,11 @@ def _make_config(
         subagent=subagent,
         synthesis_model=synthesis_model,
         compaction_model=compaction_model,
+        model_provider=ModelProviderConfig(
+            base_url=base_url,
+            api_key=api_key,
+            default_headers=default_headers,
+        ),
         maximum_depth=max_depth,
         maximum_parallel_subagents=max_parallel,
     )
@@ -104,6 +139,43 @@ def _run(
     max_depth: int = typer.Option(2, "--max-depth", min=0),
     max_turns: int = typer.Option(20, "--max-turns", min=1),
     max_parallel: int = typer.Option(10, "--max-parallel", min=1),
+    base_url: str | None = typer.Option(
+        None,
+        "--base-url",
+        help=(
+            "OpenAI-compatible API base URL. Omit to use OPENAI_BASE_URL "
+            "or https://api.openai.com/v1."
+        ),
+    ),
+    api_key: str | None = typer.Option(
+        None,
+        "--api-key",
+        help="Provider API key. Omit to use OPENAI_API_KEY.",
+    ),
+    headers: list[str] | None = typer.Option(
+        None,
+        "--header",
+        "-H",
+        help="Provider header as NAME: VALUE. May be repeated.",
+    ),
+    temperature: float | None = typer.Option(
+        None,
+        "--temperature",
+        min=0.0,
+        max=2.0,
+        help="Sampling temperature forwarded to the model.",
+    ),
+    max_output_tokens: int | None = typer.Option(
+        None,
+        "--max-output-tokens",
+        min=1,
+        help="Maximum output tokens forwarded to the model.",
+    ),
+    parallel_tool_calls: bool = typer.Option(
+        True,
+        "--parallel-tool-calls/--no-parallel-tool-calls",
+        help="Allow models to issue parallel tool calls.",
+    ),
     refusal_retries: int = typer.Option(
         0,
         "--refusal-retries",
@@ -123,7 +195,7 @@ def _run(
     ),
     telemetry: bool = typer.Option(
         False,
-        "--telemetry/--no-telemetry",
+        "--telemetry",
         help=(
             "Emit OpenInference traces of HALO's own LLM/tool/agent "
             "activity. If CATALYST_OTLP_TOKEN is set, spans go to "
@@ -133,23 +205,36 @@ def _run(
     ),
 ) -> None:
     """Run the HALO engine against TRACE_PATH and stream output to stdout."""
-    if not os.environ.get("OPENAI_API_KEY"):
-        typer.echo("OPENAI_API_KEY not set; the engine needs real LLM access.", err=True)
+    if api_key is None and not os.environ.get("OPENAI_API_KEY"):
+        typer.echo(
+            "OPENAI_API_KEY not set; pass --api-key or export OPENAI_API_KEY.",
+            err=True,
+        )
         raise typer.Exit(1)
     cfg = _make_config(
-        model,
-        max_depth,
-        max_turns,
-        max_parallel,
-        _parse_reasoning_effort(reasoning_effort),
-        refusal_retries,
+        model=model,
+        max_depth=max_depth,
+        max_turns=max_turns,
+        max_parallel=max_parallel,
+        temperature=temperature,
+        max_output_tokens=max_output_tokens,
+        parallel_tool_calls=parallel_tool_calls,
+        reasoning_effort=_parse_reasoning_effort(reasoning_effort),
+        refusal_retries=refusal_retries,
+        base_url=base_url,
+        api_key=api_key,
+        default_headers=_parse_headers(headers),
     )
     asyncio.run(_stream(trace_path, prompt, cfg, telemetry=telemetry))
 
 
+cli = typer.Typer(add_completion=False, rich_markup_mode=None)
+cli.command()(_run)
+
+
 def app() -> None:
     """Entry point bound to `halo` in pyproject.toml."""
-    typer.run(_run)
+    cli()
 
 
 if __name__ == "__main__":
