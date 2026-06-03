@@ -3,6 +3,7 @@ from __future__ import annotations
 from openai import AsyncOpenAI, omit
 from pydantic import BaseModel, ConfigDict
 
+from engine.agents.prompt_caching import as_cached_system_message
 from engine.agents.prompt_templates import SYNTHESIS_SYSTEM_PROMPT
 from engine.model_config import ModelConfig
 from engine.tools.tool_protocol import ToolContext
@@ -48,7 +49,15 @@ class SynthesisTool:
     async def run(
         self, tool_context: ToolContext, arguments: SynthesizeTracesArguments
     ) -> SynthesizeTracesResult:
-        """Render each trace, prepend the focus hint if set, and return the synthesis model's plain-text reply."""
+        """Render each trace, prepend the focus hint if set, and return the synthesis model's plain-text reply.
+
+        The system message is built with :func:`as_cached_system_message`
+        so the byte-stable :data:`SYNTHESIS_SYSTEM_PROMPT` prefix is
+        cacheable on Anthropic (read-back surfaces as
+        ``cache_read_input_tokens``) without affecting OpenAI's automatic
+        prefix cache. The per-call dynamic trace text goes in the trailing
+        ``user`` message to keep the prefix byte-stable across calls.
+        """
         user_text_parts = [f"trace_ids: {', '.join(arguments.trace_ids)}"]
         if arguments.focus:
             user_text_parts.append(f"focus: {arguments.focus}")
@@ -61,7 +70,7 @@ class SynthesisTool:
         response = await self._client.chat.completions.create(
             model=self._model.name,
             messages=[
-                {"role": "system", "content": SYNTHESIS_SYSTEM_PROMPT},
+                as_cached_system_message(SYNTHESIS_SYSTEM_PROMPT),
                 {"role": "user", "content": "\n\n".join(user_text_parts)},
             ],
             reasoning_effort=self._model.effective_reasoning_effort() or omit,

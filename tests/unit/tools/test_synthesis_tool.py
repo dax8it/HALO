@@ -111,3 +111,39 @@ async def test_synthesis_tool_omits_reasoning_for_non_reasoning_model(
 
     call_kwargs = fake_client.chat.completions.create.await_args.kwargs
     assert isinstance(call_kwargs["reasoning_effort"], Omit)
+
+
+@pytest.mark.asyncio
+async def test_synthesis_tool_marks_system_prefix_cacheable(ctx: ToolContext) -> None:
+    """The synthesis call should mark its byte-stable system prefix as
+    cacheable so Anthropic returns ``cache_read_input_tokens > 0`` on
+    subsequent calls (INF-3300)."""
+    from engine.agents.prompt_templates import SYNTHESIS_SYSTEM_PROMPT
+
+    fake_client = _stub_client_returning("ok")
+    tool = SynthesisTool(
+        model=ModelConfig(name="claude-opus-4-7"),
+        client=fake_client,
+    )
+
+    await tool.run(ctx, SynthesizeTracesArguments(trace_ids=["t-aaaa"]))
+
+    call_kwargs = fake_client.chat.completions.create.await_args.kwargs
+    messages = call_kwargs["messages"]
+
+    system = messages[0]
+    assert system["role"] == "system"
+    assert system["content"] == [
+        {
+            "type": "text",
+            "text": SYNTHESIS_SYSTEM_PROMPT,
+            "cache_control": {"type": "ephemeral"},
+        }
+    ]
+
+    # User message carries the dynamic per-call payload — keeping it out of
+    # the system block is what makes the prefix byte-stable across calls.
+    user = messages[1]
+    assert user["role"] == "user"
+    assert isinstance(user["content"], str)
+    assert "trace_ids: t-aaaa" in user["content"]

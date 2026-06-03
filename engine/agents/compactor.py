@@ -3,6 +3,7 @@ from __future__ import annotations
 from openai import AsyncOpenAI, omit
 
 from engine.agents.agent_context_items import AgentContextItem
+from engine.agents.prompt_caching import as_cached_system_message
 from engine.agents.prompt_templates import COMPACTION_SYSTEM_PROMPT
 from engine.model_config import ModelConfig
 
@@ -13,7 +14,15 @@ async def compact(
     compaction_model: ModelConfig,
     item: AgentContextItem,
 ) -> str:
-    """Summarize one ``AgentContextItem`` via ``client`` using ``compaction_model``."""
+    """Summarize one ``AgentContextItem`` via ``client`` using ``compaction_model``.
+
+    The system message is built with :func:`as_cached_system_message` so the
+    byte-stable :data:`COMPACTION_SYSTEM_PROMPT` prefix is cacheable on
+    Anthropic (read-back surfaces as ``cache_read_input_tokens``) without
+    affecting OpenAI's automatic prefix cache. The per-item dynamic text
+    goes in the trailing ``user`` message to keep the prefix byte-stable
+    across calls.
+    """
     user_text = _item_as_prompt(item)
     # Frontier models (gpt-5.x, claude-opus-4-7+, …) reject ``temperature``
     # as deprecated; only forward it when explicitly set on the compaction
@@ -22,7 +31,7 @@ async def compact(
     response = await client.chat.completions.create(
         model=compaction_model.name,
         messages=[
-            {"role": "system", "content": COMPACTION_SYSTEM_PROMPT},
+            as_cached_system_message(COMPACTION_SYSTEM_PROMPT),
             {"role": "user", "content": user_text},
         ],
         temperature=temperature,
