@@ -117,7 +117,9 @@ HALO uses the canonical OpenAI env vars: `OPENAI_API_KEY` for credentials and `O
 | --------------------------------------------- | -------------------------------------------- | ---------------------------------------------------------------------------------------------- |
 | `TRACE_PATH`                                  | required                                     | JSONL trace file                                                                               |
 | `--prompt`, `-p`                              | required                                     | User prompt sent to the root agent                                                             |
-| `--model`, `-m`                               | `gpt-5.4-mini`                               | Model name for root, subagent, synthesis, and compaction calls                                 |
+| `--model`, `-m`                               | `gpt-5.4-mini`                               | Model name for root and subagent calls; also the fallback for synthesis and compaction        |
+| `--synthesis-model`                           | `--model`                                    | Model for synthesis calls (trace summarization). A small, cheap model (e.g. `gpt-4.1-nano`) is recommended |
+| `--compaction-model`                          | `--model`                                    | Model for compaction calls (context summarization) — the biggest token consumer in large runs. A small, cheap model (e.g. `gpt-4.1-nano`) is recommended |
 | `--max-depth`                                 | `2`                                          | Max subagent recursion depth                                                                   |
 | `--max-turns`                                 | `20`                                         | Max turns per agent                                                                            |
 | `--max-parallel`                              | `10`                                         | Max concurrent subagents                                                                       |
@@ -128,7 +130,7 @@ HALO uses the canonical OpenAI env vars: `OPENAI_API_KEY` for credentials and `O
 | `--max-output-tokens`                         | provider default                             | Maximum output tokens forwarded to the model                                                   |
 | `--parallel-tool-calls / --no-parallel-tool-calls` | enabled                                      | Allow models to issue parallel tool calls                                                      |
 | `--refusal-retries`                           | `0`                                          | Retry an agent model request this many times when the model refuses                            |
-| `--reasoning-effort`                          | model/provider default                       | Reasoning effort for root, subagent, and synthesis calls. Compaction never uses reasoning      |
+| `--reasoning-effort`                          | model/provider default                       | Reasoning effort for root and subagent calls, and synthesis unless `--synthesis-model` is set. Compaction never uses reasoning |
 | `--telemetry`                                 | off                                          | Emit OpenInference traces of HALO's own LLM, tool, and agent activity                         |
 
 For example:
