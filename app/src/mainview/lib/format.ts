@@ -35,6 +35,7 @@ export function sourceLabel(value: string, fallback = value) {
   if (value === "local") return "Local";
   if (value === "langfuse") return "Langfuse";
   if (value === "phoenix") return "Phoenix";
+  if (value === "file") return "File";
   return fallback;
 }
 

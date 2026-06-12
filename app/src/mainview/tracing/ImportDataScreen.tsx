@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Activity, ArrowRight, Terminal } from "lucide-react";
+import { Activity, ArrowRight, FileUp, Terminal } from "lucide-react";
 
 import {
   Badge,
@@ -13,11 +13,13 @@ import {
 export function ImportDataScreen({
   ingestUrl,
   onConnectLocalAgent,
+  onImportJsonl,
   onImportLangfuse,
   onImportPhoenix,
 }: {
   ingestUrl?: string;
   onConnectLocalAgent: () => void;
+  onImportJsonl: () => void;
   onImportLangfuse: () => void;
   onImportPhoenix: () => void;
 }) {
@@ -60,6 +62,17 @@ export function ImportDataScreen({
             }
             onClick={onImportPhoenix}
             title="Import from Phoenix"
+          />
+          <ImportDataActionCard
+            description="Upload a JSONL trace export. One span per line, the format HALO and Catalyst exports use."
+            estimatedTime="Est time: 1-2 minutes"
+            icon={
+              <span className="grid h-11 w-11 place-items-center rounded-xl bg-detail-brand/10 text-detail-brand">
+                <FileUp className="h-5 w-5" />
+              </span>
+            }
+            onClick={onImportJsonl}
+            title="Import JSONL File"
           />
           <ImportDataActionCard
             description="Point a Catalyst or OpenTelemetry JSON exporter at HALO and watch traces stream live."

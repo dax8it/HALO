@@ -2,7 +2,7 @@ import type { FacetId } from "../../server/telemetry/types";
 
 export type StatusFilter = "all" | "ok" | "error";
 export type ScopeFilter = "all" | "root" | "entrypoint";
-export type SourceFilter = "all" | "local" | "langfuse" | "phoenix";
+export type SourceFilter = "all" | "local" | "langfuse" | "phoenix" | "file";
 export type TraceMonitorViewMode = "traces" | "sessions";
 
 /**

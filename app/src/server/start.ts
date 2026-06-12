@@ -4,6 +4,7 @@ import { createDatabase, ensureSchema } from "./db/client";
 import { createHaloRunService } from "./halo/runQueue";
 import { createLangfuseImportService } from "./langfuse/importQueue";
 import { createPhoenixImportService } from "./phoenix/importQueue";
+import { createFileImportService } from "./fileimport/importQueue";
 import { createLiveEventStore } from "./live/events";
 import { startLiveWebSocketServer } from "./live/server";
 import { appRouter } from "./router";
@@ -37,6 +38,7 @@ export function startTelemetryServer(options: StartTelemetryServerOptions = {}) 
   const live = createLiveEventStore(database.sqlite);
   const langfuseImports = createLangfuseImportService({ database, live });
   const phoenixImports = createPhoenixImportService({ database, live });
+  const fileImports = createFileImportService({ database, live });
   const haloRuns = createHaloRunService({ database, live });
   const requestedWsPort = options.wsPort ?? envPorts.liveWsPort;
   const configuredLiveUrl = `ws://${hostname}:${requestedWsPort}`;
@@ -54,6 +56,7 @@ export function startTelemetryServer(options: StartTelemetryServerOptions = {}) 
               live,
               liveUrl: configuredLiveUrl,
               phoenixImports,
+              fileImports,
             }),
             hostname,
             port: requestedWsPort,
@@ -69,6 +72,7 @@ export function startTelemetryServer(options: StartTelemetryServerOptions = {}) 
     haloRuns,
     ingestUrl,
     phoenixImports,
+    fileImports,
   );
   const server = guardPortInUse(port, "HALO_INGEST_PORT", () =>
     Bun.serve({
@@ -87,6 +91,7 @@ export function startTelemetryServer(options: StartTelemetryServerOptions = {}) 
     live,
     langfuseImports,
     phoenixImports,
+    fileImports,
     liveServer,
     liveUrl,
     port: server.port,

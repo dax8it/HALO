@@ -26,6 +26,7 @@ import { AppHeader } from "~/components/AppHeader";
 import { ImportDataScreen, LocalAgentSetupDialog } from "./ImportDataScreen";
 import { LangfuseImportDialog } from "./langfuse/LangfuseImportDialog";
 import { PhoenixImportDialog } from "./phoenix/PhoenixImportDialog";
+import { FileImportDialog } from "./fileimport/FileImportDialog";
 import { LiveStatusBadge, type LiveStatus } from "./TraceTitleBar";
 
 const DEFAULT_INGEST_URL = "http://127.0.0.1:8799/v1/traces";
@@ -34,6 +35,7 @@ export function ImportDataRoutePage() {
   const [clearDialogOpen, setClearDialogOpen] = useState(false);
   const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [phoenixDialogOpen, setPhoenixDialogOpen] = useState(false);
+  const [fileDialogOpen, setFileDialogOpen] = useState(false);
   const [localAgentSetupOpen, setLocalAgentSetupOpen] = useState(false);
   const [liveStatus, setLiveStatus] = useState<LiveStatus>("connecting");
   const utils = trpc.useUtils();
@@ -178,6 +180,7 @@ export function ImportDataRoutePage() {
           <ImportDataScreen
             ingestUrl={ingestUrl}
             onConnectLocalAgent={() => setLocalAgentSetupOpen(true)}
+            onImportJsonl={() => setFileDialogOpen(true)}
             onImportLangfuse={() => setImportDialogOpen(true)}
             onImportPhoenix={() => setPhoenixDialogOpen(true)}
           />
@@ -193,6 +196,11 @@ export function ImportDataRoutePage() {
         onImported={refreshTelemetry}
         onOpenChange={setPhoenixDialogOpen}
         open={phoenixDialogOpen}
+      />
+      <FileImportDialog
+        onImported={refreshTelemetry}
+        onOpenChange={setFileDialogOpen}
+        open={fileDialogOpen}
       />
       <LocalAgentSetupDialog
         envLine={catalystEnvLine}

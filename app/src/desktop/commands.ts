@@ -147,6 +147,10 @@ export type HaloDesktopRPCSchema = {
         params: { url: string };
         response: { ok: boolean };
       };
+      pickImportFile: {
+        params: undefined;
+        response: { path: string | null };
+      };
       revealDatabaseFile: {
         params: undefined;
         response: { ok: boolean };

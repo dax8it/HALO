@@ -272,6 +272,36 @@ export const phoenixImportJobs = sqliteTable(
   ],
 );
 
+export const fileImportJobs = sqliteTable(
+  "file_import_jobs",
+  {
+    id: text("id").primaryKey(),
+    bunqueueJobId: text("bunqueue_job_id"),
+    status: text("status").notNull(),
+    fileName: text("file_name").notNull(),
+    filePath: text("file_path").notNull(),
+    fileSizeBytes: integer("file_size_bytes").notNull().default(0),
+    progress: integer("progress").notNull().default(0),
+    totalTraces: integer("total_traces").notNull().default(0),
+    importedTraces: integer("imported_traces").notNull().default(0),
+    totalObservations: integer("total_observations").notNull().default(0),
+    importedObservations: integer("imported_observations").notNull().default(0),
+    failedTraces: integer("failed_traces").notNull().default(0),
+    skippedLines: integer("skipped_lines").notNull().default(0),
+    errorMessage: text("error_message"),
+    currentTraceId: text("current_trace_id"),
+    currentTraceName: text("current_trace_name"),
+    createdAt: integer("created_at").notNull(),
+    updatedAt: integer("updated_at").notNull(),
+    startedAt: integer("started_at"),
+    finishedAt: integer("finished_at"),
+  },
+  (table) => [
+    index("file_import_jobs_status_idx").on(table.status, table.updatedAt),
+    index("file_import_jobs_updated_at_idx").on(table.updatedAt),
+  ],
+);
+
 export const haloEngineSettings = sqliteTable("halo_engine_settings", {
   id: text("id").primaryKey().default("default"),
   repoUrl: text("repo_url").notNull().default("https://github.com/context-labs/HALO"),
@@ -398,6 +428,8 @@ export type PhoenixConnectionRecord = typeof phoenixConnections.$inferSelect;
 export type NewPhoenixConnectionRecord = typeof phoenixConnections.$inferInsert;
 export type PhoenixImportJobRecord = typeof phoenixImportJobs.$inferSelect;
 export type NewPhoenixImportJobRecord = typeof phoenixImportJobs.$inferInsert;
+export type FileImportJobRecord = typeof fileImportJobs.$inferSelect;
+export type NewFileImportJobRecord = typeof fileImportJobs.$inferInsert;
 export type HaloEngineSettingsRecord = typeof haloEngineSettings.$inferSelect;
 export type HaloModelProviderRecord = typeof haloModelProviders.$inferSelect;
 export type NewHaloModelProviderRecord = typeof haloModelProviders.$inferInsert;

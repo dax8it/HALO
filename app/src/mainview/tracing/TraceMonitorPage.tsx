@@ -42,6 +42,7 @@ import { relativeTime, startDateForRange, type DateRange } from "~/lib/format";
 import { ImportDataScreen, LocalAgentSetupDialog } from "./ImportDataScreen";
 import { LangfuseImportDialog } from "./langfuse/LangfuseImportDialog";
 import { PhoenixImportDialog } from "./phoenix/PhoenixImportDialog";
+import { FileImportDialog } from "./fileimport/FileImportDialog";
 import { LiveStatusBadge, type LiveStatus } from "./TraceTitleBar";
 import type {
   SessionSortKey,
@@ -109,6 +110,7 @@ export function TraceMonitorPage({
   const [clearDialogOpen, setClearDialogOpen] = useState(false);
   const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [phoenixDialogOpen, setPhoenixDialogOpen] = useState(false);
+  const [fileDialogOpen, setFileDialogOpen] = useState(false);
   const [localAgentSetupOpen, setLocalAgentSetupOpen] = useState(false);
   const [liveStatus, setLiveStatus] = useState<LiveStatus>("connecting");
   const [recentTraceIds, setRecentTraceIds] = useState<Set<string>>(() => new Set());
@@ -626,6 +628,7 @@ export function TraceMonitorPage({
             <ImportDataScreen
               ingestUrl={ingestUrl}
               onConnectLocalAgent={() => setLocalAgentSetupOpen(true)}
+              onImportJsonl={() => setFileDialogOpen(true)}
               onImportLangfuse={() => setImportDialogOpen(true)}
               onImportPhoenix={() => setPhoenixDialogOpen(true)}
             />
@@ -783,6 +786,11 @@ export function TraceMonitorPage({
         onImported={refresh}
         onOpenChange={setPhoenixDialogOpen}
         open={phoenixDialogOpen}
+      />
+      <FileImportDialog
+        onImported={refresh}
+        onOpenChange={setFileDialogOpen}
+        open={fileDialogOpen}
       />
       <LocalAgentSetupDialog
         envLine={catalystEnvLine}

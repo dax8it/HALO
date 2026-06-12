@@ -48,6 +48,7 @@ export function PrefetchAppData() {
     void utils.langfuse.connections.list.prefetch();
     void utils.phoenix.imports.list.prefetch({ limit: 100 });
     void utils.phoenix.connections.list.prefetch();
+    void utils.fileImport.imports.list.prefetch({ limit: 100 });
   }, [utils]);
 
   return null;

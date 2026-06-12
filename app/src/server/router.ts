@@ -26,6 +26,12 @@ import {
 } from "./langfuse/storage";
 import { discoverPhoenix, previewPhoenixImport } from "./phoenix/client";
 import type { PhoenixImportService } from "./phoenix/importQueue";
+import { previewJsonlFile } from "./fileimport/parser";
+import type { FileImportService } from "./fileimport/importQueue";
+import {
+  getFileImportJob,
+  listFileImportJobs,
+} from "./fileimport/storage";
 import {
   deletePhoenixConnection,
   getPhoenixConnection,
@@ -70,6 +76,7 @@ export type TRPCContext = {
   ingestUrl?: string;
   langfuseImports?: LangfuseImportService;
   phoenixImports?: PhoenixImportService;
+  fileImports?: FileImportService;
   live: LiveEventStore;
   liveUrl: string;
 };
@@ -818,6 +825,76 @@ export const appRouter = t.router({
     }),
   }),
 
+  fileImport: t.router({
+    imports: t.router({
+      cancel: t.procedure
+        .input(z.object({ jobId: z.string().min(1) }))
+        .mutation(async ({ ctx, input }) => {
+          const service = requireFileImportService(ctx);
+          const job = await service.cancel(input.jobId);
+          if (!job) {
+            throw new TRPCError({
+              code: "NOT_FOUND",
+              message: "Import job not found",
+            });
+          }
+          return job;
+        }),
+
+      get: t.procedure
+        .input(z.object({ jobId: z.string().min(1) }))
+        .query(({ ctx, input }) => {
+          const job = getFileImportJob(ctx.database.sqlite, input.jobId);
+          if (!job) {
+            throw new TRPCError({
+              code: "NOT_FOUND",
+              message: "Import job not found",
+            });
+          }
+          return job;
+        }),
+
+      list: t.procedure
+        .input(z.object({ limit: z.number().int().min(1).max(100).optional() }).optional())
+        .query(({ ctx, input }) =>
+          listFileImportJobs(ctx.database.sqlite, input?.limit ?? 20),
+        ),
+
+      preview: t.procedure
+        .input(z.object({ filePath: z.string().min(1) }))
+        .query(async ({ input }) => {
+          try {
+            return await previewJsonlFile(input.filePath);
+          } catch (error) {
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message:
+                error instanceof Error
+                  ? error.message
+                  : "Could not read the JSONL file.",
+            });
+          }
+        }),
+
+      start: t.procedure
+        .input(z.object({ filePath: z.string().min(1) }))
+        .mutation(async ({ ctx, input }) => {
+          const service = requireFileImportService(ctx);
+          try {
+            return await service.start({ filePath: input.filePath });
+          } catch (error) {
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message:
+                error instanceof Error
+                  ? error.message
+                  : "Could not start the file import.",
+            });
+          }
+        }),
+    }),
+  }),
+
   traces: t.router({
     list: t.procedure
       .input(
@@ -1042,6 +1119,16 @@ function requireLangfuseImportService(ctx: TRPCContext): LangfuseImportService {
     });
   }
   return ctx.langfuseImports;
+}
+
+function requireFileImportService(ctx: TRPCContext): FileImportService {
+  if (!ctx.fileImports) {
+    throw new TRPCError({
+      code: "INTERNAL_SERVER_ERROR",
+      message: "File import queue is not available.",
+    });
+  }
+  return ctx.fileImports;
 }
 
 function requirePhoenixImportService(ctx: TRPCContext): PhoenixImportService {

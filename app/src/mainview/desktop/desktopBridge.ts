@@ -36,6 +36,7 @@ type DesktopRpc = {
     getAppMetadata: () => Promise<DesktopAppMetadata>;
     openAppDataFolder: () => Promise<{ ok: boolean }>;
     openExternal: (params: { url: string }) => Promise<{ ok: boolean }>;
+    pickImportFile: () => Promise<{ path: string | null }>;
     revealDatabaseFile: () => Promise<{ ok: boolean }>;
     showNotification: (params: {
       body?: string;
@@ -142,6 +143,20 @@ export async function detectInstalledCodingTools(): Promise<CodingToolAvailabili
   if (!rpc) return null;
   try {
     return await rpc.request.detectCodingTools();
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Native "choose a file" dialog. Returns null when cancelled, or when running
+ * outside the desktop shell (browser dev) — callers fall back to a path input.
+ */
+export async function pickImportFile(): Promise<string | null> {
+  const rpc = await getDesktopRpc();
+  if (!rpc) return null;
+  try {
+    return (await rpc.request.pickImportFile()).path;
   } catch {
     return null;
   }

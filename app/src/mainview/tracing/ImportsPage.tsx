@@ -2,6 +2,8 @@ import { useMemo, useRef, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { DownloadCloud, Filter, Square } from "lucide-react";
 
+import { FileUp } from "lucide-react";
+
 import { Badge, Button, EmptyState, cn, toast } from "~/lib/ui";
 import { trpc } from "~/trpc";
 import { WorkspaceNav } from "~/workspace/WorkspaceNav";
@@ -9,6 +11,7 @@ import { AppHeader } from "~/components/AppHeader";
 import { FilterSelect } from "~/components/FilterSelect";
 import { StatusBadge, ProgressBar } from "~/components/StatusBadge";
 import { formatTimestamp } from "~/lib/format";
+import type { FileImportJob } from "../../server/fileimport/types";
 import type { LangfuseImportJob } from "../../server/langfuse/types";
 import type { PhoenixImportJob } from "../../server/phoenix/types";
 import { LangfuseLogo, PhoenixLogo } from "./ImportDataScreen";
@@ -19,7 +22,8 @@ type SortOrder = "newest" | "oldest";
 /** One row in the merged imports table, tagged with its integration. */
 type ImportRow =
   | { provider: "langfuse"; job: LangfuseImportJob }
-  | { provider: "phoenix"; job: PhoenixImportJob };
+  | { provider: "phoenix"; job: PhoenixImportJob }
+  | { provider: "file"; job: FileImportJob };
 
 const STATUS_GROUPS: Array<{ id: StatusGroup; label: string }> = [
   { id: "all", label: "All" },
@@ -49,6 +53,7 @@ export function ImportsPage() {
 
   const langfuseJobsQuery = trpc.langfuse.imports.list.useQuery({ limit: 100 });
   const phoenixJobsQuery = trpc.phoenix.imports.list.useQuery({ limit: 100 });
+  const fileJobsQuery = trpc.fileImport.imports.list.useQuery({ limit: 100 });
 
   trpc.live.workspace.useSubscription(undefined, {
     onData(eventEnvelope) {
@@ -58,6 +63,7 @@ export function ImportsPage() {
         listInvalidateTimer.current = null;
         void utils.langfuse.imports.list.invalidate();
         void utils.phoenix.imports.list.invalidate();
+        void utils.fileImport.imports.list.invalidate();
       }, 300);
     },
   });
@@ -74,6 +80,12 @@ export function ImportsPage() {
       await utils.phoenix.imports.list.invalidate();
     },
   });
+  const cancelFile = trpc.fileImport.imports.cancel.useMutation({
+    async onSuccess() {
+      toast.success({ title: "Import cancelled" });
+      await utils.fileImport.imports.list.invalidate();
+    },
+  });
 
   const rows = useMemo<ImportRow[]>(
     () => [
@@ -83,8 +95,11 @@ export function ImportsPage() {
       ...(phoenixJobsQuery.data ?? []).map(
         (job): ImportRow => ({ job, provider: "phoenix" }),
       ),
+      ...(fileJobsQuery.data ?? []).map(
+        (job): ImportRow => ({ job, provider: "file" }),
+      ),
     ],
-    [langfuseJobsQuery.data, phoenixJobsQuery.data],
+    [fileJobsQuery.data, langfuseJobsQuery.data, phoenixJobsQuery.data],
   );
   const groupCounts = useMemo(() => {
     const counts: Record<StatusGroup, number> = {
@@ -111,6 +126,8 @@ export function ImportsPage() {
   const cancelRow = (row: ImportRow) => {
     if (row.provider === "phoenix") {
       cancelPhoenix.mutate({ jobId: row.job.id });
+    } else if (row.provider === "file") {
+      cancelFile.mutate({ jobId: row.job.id });
     } else {
       cancelLangfuse.mutate({ jobId: row.job.id });
     }
@@ -236,7 +253,12 @@ function ImportsTable({
       <div>
         {rows.map((row) => {
           const { job, provider } = row;
-          const providerLabel = provider === "phoenix" ? "Phoenix" : "Langfuse";
+          const providerLabel =
+            provider === "phoenix"
+              ? "Phoenix"
+              : provider === "file"
+                ? "File"
+                : "Langfuse";
           const active = isActiveImport(row);
           const created = new Date(job.createdAt);
           return (
@@ -251,13 +273,15 @@ function ImportsTable({
                 <span className="grid h-9 w-9 shrink-0 place-items-center rounded-md bg-background-muted">
                   {provider === "phoenix" ? (
                     <PhoenixLogo className="h-5 w-5" />
+                  ) : provider === "file" ? (
+                    <FileUp className="h-5 w-5 text-detail-brand" />
                   ) : (
                     <LangfuseLogo className="h-5 w-5" />
                   )}
                 </span>
                 <div className="min-w-0">
                   <p className="truncate text-sm font-medium">
-                    {job.connectionName ?? providerLabel}
+                    {rowTitle(row) ?? providerLabel}
                   </p>
                   <div className="mt-1 flex min-w-0 items-center gap-2 overflow-hidden whitespace-nowrap">
                     <Badge size="sm" variant="outline">
@@ -339,9 +363,20 @@ function statusGroupLabel(group: StatusGroup) {
   return group === "all" ? "matching" : group;
 }
 
+function rowTitle(row: ImportRow) {
+  if (row.provider === "file") return row.job.fileName;
+  return row.job.connectionName;
+}
+
 /** One-line description of what the import covered. */
 function filtersSummary(row: ImportRow) {
   const parts: string[] = [];
+  if (row.provider === "file") {
+    if (row.job.skippedLines > 0) {
+      parts.push(`${row.job.skippedLines.toLocaleString()} lines skipped`);
+    }
+    return parts.length > 0 ? parts.join(" \u00b7 ") : "whole file";
+  }
   if (row.provider === "phoenix") {
     if (row.job.filters.projectName) {
       parts.push(`project: ${row.job.filters.projectName}`);

@@ -80,6 +80,17 @@ const desktopRpc = BrowserView.defineRPC<HaloDesktopRPCSchema>({
         return { ok };
       },
       openExternal: ({ url }) => ({ ok: Utils.openExternal(url) }),
+      pickImportFile: async () => {
+        const paths = await Utils.openFileDialog({
+          allowedFileTypes: "jsonl,json",
+          allowsMultipleSelection: false,
+          canChooseDirectory: false,
+          canChooseFiles: true,
+          startingFolder: "~/",
+        });
+        const path = paths.find((entry) => entry.trim()) ?? null;
+        return { path };
+      },
       revealDatabaseFile: () => {
         Utils.showItemInFolder(runtimePaths.dbPath);
         return { ok: true };
@@ -297,6 +308,7 @@ Electrobun.events.on("before-quit", () => {
   windowState.stop();
   void api.langfuseImports.close(true);
   void api.phoenixImports.close(true);
+  void api.fileImports.close(true);
   void api.haloRuns.close(true);
   api.liveServer?.stop();
   api.server.stop(true);

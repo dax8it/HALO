@@ -247,6 +247,31 @@ export function ensureSchema(sqlite: Database) {
   `);
 
   sqlite.run(`
+    CREATE TABLE IF NOT EXISTS file_import_jobs (
+      id TEXT PRIMARY KEY NOT NULL,
+      bunqueue_job_id TEXT,
+      status TEXT NOT NULL,
+      file_name TEXT NOT NULL,
+      file_path TEXT NOT NULL,
+      file_size_bytes INTEGER NOT NULL DEFAULT 0,
+      progress INTEGER NOT NULL DEFAULT 0,
+      total_traces INTEGER NOT NULL DEFAULT 0,
+      imported_traces INTEGER NOT NULL DEFAULT 0,
+      total_observations INTEGER NOT NULL DEFAULT 0,
+      imported_observations INTEGER NOT NULL DEFAULT 0,
+      failed_traces INTEGER NOT NULL DEFAULT 0,
+      skipped_lines INTEGER NOT NULL DEFAULT 0,
+      error_message TEXT,
+      current_trace_id TEXT,
+      current_trace_name TEXT,
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL,
+      started_at INTEGER,
+      finished_at INTEGER
+    );
+  `);
+
+  sqlite.run(`
     CREATE TABLE IF NOT EXISTS halo_engine_settings (
       id TEXT PRIMARY KEY NOT NULL DEFAULT 'default',
       repo_url TEXT NOT NULL DEFAULT 'https://github.com/context-labs/HALO',
@@ -398,6 +423,8 @@ export function ensureSchema(sqlite: Database) {
     "CREATE INDEX IF NOT EXISTS phoenix_import_jobs_connection_idx ON phoenix_import_jobs(connection_id)",
     "CREATE INDEX IF NOT EXISTS phoenix_import_jobs_status_idx ON phoenix_import_jobs(status, updated_at)",
     "CREATE INDEX IF NOT EXISTS phoenix_import_jobs_updated_at_idx ON phoenix_import_jobs(updated_at)",
+    "CREATE INDEX IF NOT EXISTS file_import_jobs_status_idx ON file_import_jobs(status, updated_at)",
+    "CREATE INDEX IF NOT EXISTS file_import_jobs_updated_at_idx ON file_import_jobs(updated_at)",
     "CREATE INDEX IF NOT EXISTS halo_model_providers_updated_at_idx ON halo_model_providers(updated_at)",
     "CREATE INDEX IF NOT EXISTS halo_runs_status_idx ON halo_runs(status, updated_at)",
     "CREATE INDEX IF NOT EXISTS halo_runs_updated_at_idx ON halo_runs(updated_at)",
@@ -451,6 +478,7 @@ function reconcileTraceSummarySources(sqlite: Database) {
         AND s.parent_span_id = ''
         AND s.span_attributes NOT LIKE '%"halo.source":"langfuse"%'
         AND s.span_attributes NOT LIKE '%"halo.source":"phoenix"%'
+        AND s.span_attributes NOT LIKE '%"halo.source":"file"%'
     )
     OR EXISTS (
       SELECT 1

@@ -24,7 +24,7 @@ import type { HaloRun, HaloRunTargetType } from "../../server/halo/types";
 import type { FacetId, TelemetryFilters } from "../../server/telemetry/types";
 
 type StatusFilter = "all" | "ok" | "error";
-type SourceFilter = "all" | "local" | "langfuse" | "phoenix";
+type SourceFilter = "all" | "local" | "langfuse" | "phoenix" | "file";
 
 const DEFAULT_PROMPT =
   "Analyze these traces. Identify the most important failures, latency bottlenecks, confusing tool behavior, and concrete improvements for the developer.";
