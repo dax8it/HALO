@@ -2,6 +2,13 @@ export const APP_NAME = "HALO";
 export const APP_BUNDLE_ID = "net.inference.halo";
 export const APP_DOCS_URL = "https://github.com/context-labs/halo";
 export const APP_RELEASE_URL = "https://inference.net/halo/releases";
+export const APP_GITHUB_RELEASES_URL =
+  "https://github.com/context-labs/HALO/releases";
+
+/** GitHub release page for an app version ("0.1.9" → …/tag/app-v0.1.9). */
+export function githubReleaseUrl(version: string) {
+  return `${APP_GITHUB_RELEASES_URL}/tag/app-v${version}`;
+}
 export const DEFAULT_INGEST_URL = "http://127.0.0.1:8799/v1/traces";
 
 export type WorkspaceRoute = "traces" | "analysis" | "settings";

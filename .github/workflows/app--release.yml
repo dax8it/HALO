@@ -285,3 +285,31 @@ jobs:
             --cache-control "public, max-age=300"
           aws s3 rm "s3://$HALO_RELEASE_BUCKET/halo/install" \
             --endpoint-url "$HALO_RELEASE_ENDPOINT_URL" || true
+
+  github-release:
+    name: Create GitHub release
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/app-v')
+    needs:
+      - package-release
+    permissions:
+      contents: write
+    defaults:
+      run:
+        working-directory: .
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: halo-release-${{ github.event.inputs.channel || 'stable' }}
+          path: artifacts
+      # The update dialog deep-links to this release page so users can read
+      # what changed before installing.
+      - name: Create GitHub release for the tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "HALO Desktop ${GITHUB_REF_NAME#app-v}" \
+            --generate-notes \
+            artifacts/*.dmg artifacts/*-Setup.tar.gz

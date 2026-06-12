@@ -38,6 +38,7 @@ import {
   commandLabel,
   desktopCommandForShortcut,
   filterCommandPaletteItems,
+  githubReleaseUrl,
   routeForCommand,
   routePath,
   type CommandPaletteItem,
@@ -55,6 +56,7 @@ import {
   dispatchTracePageCommand,
   getDesktopRpc,
   initializeDesktopBridge,
+  openExternalUrl,
   type TracePageCommand,
 } from "./desktopBridge";
 
@@ -424,7 +426,7 @@ export function DesktopCommandCenter() {
         dialogDescription={
           updateInstalling
             ? "Downloading and installing the update. HALO restarts on its own when it finishes."
-            : `HALO ${updatePrompt?.version ?? ""} is ready to install. Your local data is untouched — only the app updates.`
+            : `HALO ${updatePrompt?.version ?? ""} is ready to install. Your local data will remain unchanged.`
         }
         dialogTitle="Update available"
         disabled={updateInstalling}
@@ -436,7 +438,23 @@ export function DesktopCommandCenter() {
           if (!open && !updateInstalling) dismissUpdate();
         }}
         open={Boolean(updatePrompt)}
-      />
+      >
+        {updatePrompt && !updateInstalling ? (
+          <button
+            className="inline-flex items-center gap-1.5 text-sm text-link hover:underline"
+            onClick={() => {
+              const url = githubReleaseUrl(updatePrompt.version);
+              void openExternalUrl(url).then((opened) => {
+                if (!opened) window.open(url, "_blank", "noopener");
+              });
+            }}
+            type="button"
+          >
+            <ExternalLink className="h-3.5 w-3.5" />
+            View this release on GitHub
+          </button>
+        ) : null}
+      </Dialog>
     </>
   );
 }
